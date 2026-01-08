@@ -1,14 +1,20 @@
 @import "tailwindcss";
 
-/* Fonte do Clash Royale - Clash Regular */
+/* Fonte do Clash Royale - Clash Regular / Supercell Magic */
 @font-face {
   font-family: 'Clash Regular';
-  src: url('/fonts/Clash-Regular.woff2') format('woff2'),
+  src: url('/fonts/Clash_Regular.otf') format('opentype'),
+       url('/fonts/Clash-Regular.otf') format('opentype'),
+       url('/fonts/clash-regular.otf') format('opentype'),
+       url('/fonts/Clash-Regular.woff2') format('woff2'),
        url('/fonts/Clash-Regular.woff') format('woff'),
        url('/fonts/Clash-Regular.ttf') format('truetype'),
        url('/fonts/clash-regular.woff2') format('woff2'),
        url('/fonts/clash-regular.woff') format('woff'),
-       url('/fonts/clash-regular.ttf') format('truetype');
+       url('/fonts/clash-regular.ttf') format('truetype'),
+       url('/fonts/Supercell-Magic.woff2') format('woff2'),
+       url('/fonts/Supercell-Magic.woff') format('woff'),
+       url('/fonts/Supercell-Magic.ttf') format('truetype');
   font-weight: normal;
   font-style: normal;
   font-display: swap;
@@ -60,13 +66,15 @@
 }
 
 /* Classe para aplicar a fonte do Clash Royale */
-/* Usa as fontes do Google Fonts carregadas via next/font/google */
+/* Prioriza a fonte oficial Clash Regular, depois usa fallbacks */
 .font-clash {
-  font-family: var(--font-righteous), var(--font-bungee), 'Righteous', 'Bungee', 'Clash Regular', 'Arial Black', Impact, sans-serif !important;
-  letter-spacing: 0.05em;
+  font-family: 'Clash Regular', 'Supercell Magic', var(--font-bungee), var(--font-righteous), 'Bungee', 'Righteous', 'Arial Black', Impact, sans-serif !important;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
+  font-weight: 400;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
 /* Otimizações para Mobile */
