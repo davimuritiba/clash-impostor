@@ -47,7 +47,8 @@ export async function POST(request: Request) {
     const cleanApiKey = apiKey.trim();
     const authHeader = `Bearer ${cleanApiKey}`;
 
-    const response = await fetch('https://api.clashroyale.com/v1/cards', {
+    // Usando proxy do RoyaleAPI para evitar problemas com IPs dinâmicos
+    const response = await fetch('https://proxy.royaleapi.dev/v1/cards', {
       method: 'GET',
       headers: { 
         'Authorization': authHeader,

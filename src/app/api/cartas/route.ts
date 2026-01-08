@@ -14,7 +14,8 @@ export async function GET() {
     const cleanToken = token.trim();
 
     try {
-        const res = await fetch('https://api.clashroyale.com/v1/cards', {
+        // Usando proxy do RoyaleAPI para evitar problemas com IPs dinâmicos
+        const res = await fetch('https://proxy.royaleapi.dev/v1/cards', {
             headers: {
                 'Authorization': `Bearer ${cleanToken}`,
                 'Content-Type': 'application/json',
