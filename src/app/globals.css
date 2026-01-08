@@ -60,12 +60,11 @@
 }
 
 /* Classe para aplicar a fonte do Clash Royale */
-/* Prioriza fontes do Google Fonts que já estão carregadas, depois tenta Clash Regular local */
+/* Usa as fontes do Google Fonts carregadas via next/font/google */
 .font-clash {
-  font-family: var(--font-righteous), var(--font-bungee), 'Clash Regular', 'Arial Black', Impact, sans-serif;
+  font-family: var(--font-righteous), var(--font-bungee), 'Righteous', 'Bungee', 'Clash Regular', 'Arial Black', Impact, sans-serif !important;
   letter-spacing: 0.05em;
   text-transform: uppercase;
-  font-weight: normal;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }

@@ -38,7 +38,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="pt-BR" className={`${righteous.variable} ${bungee.variable}`}>
-      <body className="antialiased">
+      <body className={`antialiased ${righteous.variable} ${bungee.variable}`}>
         {children}
       </body>
     </html>
