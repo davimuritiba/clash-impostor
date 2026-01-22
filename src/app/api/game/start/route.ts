@@ -1,9 +1,14 @@
 import { NextResponse } from 'next/server';
 import { setupGame } from '@/services/gameLogic';
+import { GameMode } from '@/types/game';
 
 export async function POST(request: Request) {
   try {
-    const { playersCount, impostorsCount } = await request.json();
+    const { playersCount, impostorsCount, gameMode = "CLASSIC" } = await request.json() as {
+      playersCount: number;
+      impostorsCount: number;
+      gameMode?: GameMode;
+    };
 
     // Validação dos dados de entrada
     if (!playersCount || !impostorsCount) {
@@ -115,8 +120,17 @@ export async function POST(request: Request) {
 
     const allCards = data.items;
 
-    // Inicia a lógica do jogo passando as cartas e configs
-    const gameSession = setupGame(allCards, playersCount, impostorsCount);
+    // Valida o modo de jogo
+    const validModes: GameMode[] = ["CLASSIC", "SPY"];
+    if (!validModes.includes(gameMode)) {
+      return NextResponse.json(
+        { error: 'Modo de jogo inválido. Use "CLASSIC" ou "SPY"' },
+        { status: 400 }
+      );
+    }
+
+    // Inicia a lógica do jogo passando as cartas, configs e modo de jogo
+    const gameSession = setupGame(allCards, playersCount, impostorsCount, gameMode);
 
     return NextResponse.json(gameSession);
   } catch (error) {

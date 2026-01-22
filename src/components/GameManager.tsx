@@ -2,23 +2,24 @@
 
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
-import { Card, Player } from '@/types/game';
+import { Card, Player, GameMode, GAME_MODES, GameSession } from '@/types/game';
 
-type GamePhase = 'START' | 'PASS' | 'REVEAL' | 'PLAYING';
-
-interface GameSession {
-  secretCard: Card;
-  players: Player[];
-}
+type GamePhase = 'MODE_SELECT' | 'START' | 'PASS' | 'REVEAL' | 'PLAYING';
 
 export default function GameManager() {
-  const [phase, setPhase] = useState<GamePhase>('START');
+  const [phase, setPhase] = useState<GamePhase>('MODE_SELECT');
   const [gameSession, setGameSession] = useState<GameSession | null>(null);
   const [currentPlayerIndex, setCurrentPlayerIndex] = useState(0);
   const [playersCount, setPlayersCount] = useState(4);
   const [impostorsCount, setImpostorsCount] = useState(1);
+  const [gameMode, setGameMode] = useState<GameMode>('CLASSIC');
   const [isLoading, setIsLoading] = useState(false);
   const [timer, setTimer] = useState(0);
+
+  const selectMode = (mode: GameMode) => {
+    setGameMode(mode);
+    setPhase('START');
+  };
 
   const startGame = async () => {
     setIsLoading(true);
@@ -31,6 +32,7 @@ export default function GameManager() {
         body: JSON.stringify({
           playersCount,
           impostorsCount,
+          gameMode,
         }),
       });
 
@@ -89,10 +91,15 @@ export default function GameManager() {
   }, [phase]);
 
   const resetGame = () => {
-    setPhase('START');
+    setPhase('MODE_SELECT');
     setGameSession(null);
     setCurrentPlayerIndex(0);
     setTimer(0);
+    setGameMode('CLASSIC');
+  };
+
+  const backToModeSelect = () => {
+    setPhase('MODE_SELECT');
   };
 
   const formatTime = (seconds: number) => {
@@ -103,15 +110,68 @@ export default function GameManager() {
 
   const currentPlayer = gameSession?.players[currentPlayerIndex];
 
+  const selectedModeInfo = GAME_MODES.find(m => m.id === gameMode);
+
   return (
     <div className="min-h-screen flex items-center justify-center p-4">
       <div className="w-full max-w-md">
+        {/* Fase MODE_SELECT */}
+        {phase === 'MODE_SELECT' && (
+          <div className="bg-white/10 backdrop-blur-lg rounded-3xl p-8 shadow-2xl animate-fade-in">
+            <h1 className="text-4xl font-bold text-center mb-4 text-yellow-400 drop-shadow-lg font-clash">
+              CLASH IMPOSTOR
+            </h1>
+            <p className="text-white text-center mb-8 text-lg">
+              Escolha o modo de jogo
+            </p>
+            
+            <div className="space-y-4">
+              {GAME_MODES.map((mode) => (
+                <button
+                  key={mode.id}
+                  onClick={() => selectMode(mode.id)}
+                  className="w-full p-6 bg-white/10 hover:bg-white/20 rounded-2xl border-2 border-yellow-400/50 hover:border-yellow-400 transition-all duration-300 transform hover:scale-105 active:scale-95 text-left"
+                >
+                  <div className="flex items-center gap-4">
+                    <span className="text-4xl">{mode.icon}</span>
+                    <div>
+                      <h3 className="text-xl font-bold text-yellow-400 font-clash">
+                        {mode.name}
+                      </h3>
+                      <p className="text-white/80 text-sm mt-1">
+                        {mode.description}
+                      </p>
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Fase START */}
         {phase === 'START' && (
           <div className="bg-white/10 backdrop-blur-lg rounded-3xl p-8 shadow-2xl animate-fade-in">
-            <h1 className="text-4xl font-bold text-center mb-8 text-yellow-400 drop-shadow-lg font-clash">
+            <h1 className="text-4xl font-bold text-center mb-4 text-yellow-400 drop-shadow-lg font-clash">
               CLASH IMPOSTOR
             </h1>
+            
+            {/* Modo selecionado */}
+            <div className="bg-white/10 rounded-xl p-4 mb-6 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <span className="text-2xl">{selectedModeInfo?.icon}</span>
+                <div>
+                  <span className="text-yellow-400 font-bold font-clash">{selectedModeInfo?.name}</span>
+                  <p className="text-white/60 text-xs">{selectedModeInfo?.description}</p>
+                </div>
+              </div>
+              <button
+                onClick={backToModeSelect}
+                className="text-white/60 hover:text-white text-sm underline"
+              >
+                Alterar
+              </button>
+            </div>
             
             <div className="space-y-6">
               <div>
@@ -176,17 +236,46 @@ export default function GameManager() {
         {/* Fase REVEAL */}
         {phase === 'REVEAL' && currentPlayer && gameSession && (
           <div className="bg-gradient-to-br from-purple-900 to-indigo-900 rounded-3xl p-8 shadow-2xl min-h-[500px] flex flex-col items-center justify-center animate-flip-in">
-            {currentPlayer.role === 'IMPOSTOR' ? (
+            {currentPlayer.role === 'IMPOSTOR' && gameSession.gameMode === 'CLASSIC' ? (
+              // Modo Clássico - Impostor não vê carta
               <>
                 <div className="text-6xl mb-6">👹</div>
                 <h2 className="text-5xl font-bold text-red-500 mb-4 text-center animate-pulse drop-shadow-2xl font-clash">
                   VOCÊ É O IMPOSTOR
                 </h2>
                 <p className="text-white text-xl text-center mb-8">
-                  Descubra quem não conhece a carta!
+                  Descubra qual é a carta secreta!
+                </p>
+              </>
+            ) : currentPlayer.role === 'IMPOSTOR' && gameSession.gameMode === 'SPY' ? (
+              // Modo Espião - Impostor vê carta diferente
+              <>
+                <div className="text-4xl mb-2">🕵️</div>
+                <h2 className="text-3xl font-bold text-red-500 mb-4 text-center drop-shadow-2xl font-clash">
+                  VOCÊ É O ESPIÃO
+                </h2>
+                {currentPlayer.assignedCard && (
+                  <>
+                    <div className="mb-4 relative w-40 h-40">
+                      <Image
+                        src={currentPlayer.assignedCard.iconUrls.medium}
+                        alt={currentPlayer.assignedCard.name}
+                        fill
+                        className="object-contain drop-shadow-2xl"
+                        unoptimized
+                      />
+                    </div>
+                    <h3 className="text-2xl font-bold text-yellow-400 mb-2 text-center font-clash">
+                      {currentPlayer.assignedCard.name}
+                    </h3>
+                  </>
+                )}
+                <p className="text-white text-sm text-center mb-6 px-4">
+                  Esta NÃO é a carta que os outros veem. Descubra qual é a verdadeira!
                 </p>
               </>
             ) : (
+              // Jogador normal - vê a carta secreta
               <>
                 <div className="mb-6 animate-bounce relative w-48 h-48">
                   <Image
@@ -216,8 +305,13 @@ export default function GameManager() {
         )}
 
         {/* Fase PLAYING */}
-        {phase === 'PLAYING' && (
+        {phase === 'PLAYING' && gameSession && (
           <div className="bg-gradient-to-br from-green-900 to-emerald-900 rounded-3xl p-8 shadow-2xl min-h-[400px] flex flex-col items-center justify-center animate-fade-in">
+            <div className="flex items-center gap-2 mb-4">
+              <span className="text-2xl">{selectedModeInfo?.icon}</span>
+              <span className="text-white/80 font-clash">{selectedModeInfo?.name}</span>
+            </div>
+            
             <h2 className="text-4xl font-bold text-white mb-8 text-center font-clash">
               JOGO EM ANDAMENTO
             </h2>
