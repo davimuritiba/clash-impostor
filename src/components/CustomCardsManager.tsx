@@ -240,7 +240,7 @@ export default function CustomCardsManager({ onClose, onCardsUpdate }: CustomCar
               <>
                 <button
                   onClick={saveEdit}
-                  disabled={!newCardName.trim() || (newCardImageUrl && !isValidImageUrl(newCardImageUrl))}
+                  disabled={!newCardName.trim() || !!(newCardImageUrl && !isValidImageUrl(newCardImageUrl))}
                   className="flex-1 py-2 bg-green-500 hover:bg-green-600 text-white font-bold rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-clash"
                 >
                   Salvar
@@ -255,7 +255,7 @@ export default function CustomCardsManager({ onClose, onCardsUpdate }: CustomCar
             ) : (
               <button
                 onClick={addCard}
-                disabled={!newCardName.trim() || (newCardImageUrl && !isValidImageUrl(newCardImageUrl))}
+                disabled={!newCardName.trim() || !!(newCardImageUrl && !isValidImageUrl(newCardImageUrl))}
                 className="w-full py-2 bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-bold rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-clash"
               >
                 Adicionar Carta
