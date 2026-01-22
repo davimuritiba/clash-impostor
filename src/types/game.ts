@@ -4,7 +4,42 @@ export interface Card {
   iconUrls: {
     medium: string;
   };
+  isCustom?: boolean; // Indica se é uma carta personalizada
 }
+
+// Tipo para origem das cartas
+export type CardSource = "CLASH" | "CUSTOM" | "BOTH";
+
+export interface CardSourceInfo {
+  id: CardSource;
+  name: string;
+  description: string;
+  icon: string;
+}
+
+export const CARD_SOURCES: CardSourceInfo[] = [
+  {
+    id: "CLASH",
+    name: "Clash Royale",
+    description: "Usar apenas cartas do Clash Royale",
+    icon: "⚔️",
+  },
+  {
+    id: "CUSTOM",
+    name: "Personalizadas",
+    description: "Usar apenas suas cartas personalizadas",
+    icon: "✨",
+  },
+  {
+    id: "BOTH",
+    name: "Todas",
+    description: "Misturar cartas do Clash com personalizadas",
+    icon: "🎲",
+  },
+];
+
+// Chave do localStorage para cartas personalizadas
+export const CUSTOM_CARDS_STORAGE_KEY = "clash-impostor-custom-cards";
 
 // Modos de jogo disponíveis
 export type GameMode = "CLASSIC" | "SPY";

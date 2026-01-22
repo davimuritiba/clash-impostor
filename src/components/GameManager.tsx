@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
-import { Card, Player, GameMode, GAME_MODES, GameSession } from '@/types/game';
+import { Card, GameMode, GAME_MODES, GameSession, CardSource, CARD_SOURCES, CUSTOM_CARDS_STORAGE_KEY } from '@/types/game';
+import CustomCardsManager from './CustomCardsManager';
 
 type GamePhase = 'MODE_SELECT' | 'START' | 'PASS' | 'REVEAL' | 'PLAYING' | 'GAME_END';
 
@@ -13,8 +14,27 @@ export default function GameManager() {
   const [playersCount, setPlayersCount] = useState(4);
   const [impostorsCount, setImpostorsCount] = useState(1);
   const [gameMode, setGameMode] = useState<GameMode>('CLASSIC');
+  const [cardSource, setCardSource] = useState<CardSource>('CLASH');
+  const [customCards, setCustomCards] = useState<Card[]>([]);
+  const [showCustomCardsManager, setShowCustomCardsManager] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [timer, setTimer] = useState(0);
+
+  // Carregar cartas personalizadas do localStorage ao montar
+  useEffect(() => {
+    const stored = localStorage.getItem(CUSTOM_CARDS_STORAGE_KEY);
+    if (stored) {
+      try {
+        setCustomCards(JSON.parse(stored));
+      } catch {
+        console.error('Erro ao carregar cartas personalizadas');
+      }
+    }
+  }, []);
+
+  const handleCustomCardsUpdate = useCallback((cards: Card[]) => {
+    setCustomCards(cards);
+  }, []);
 
   const selectMode = (mode: GameMode) => {
     setGameMode(mode);
@@ -22,6 +42,12 @@ export default function GameManager() {
   };
 
   const startGame = async () => {
+    // Validar se tem cartas suficientes quando usando cartas personalizadas
+    if (cardSource === 'CUSTOM' && customCards.length < 2) {
+      alert('Você precisa de pelo menos 2 cartas personalizadas para jogar. Adicione mais cartas!');
+      return;
+    }
+
     setIsLoading(true);
     try {
       const response = await fetch('/api/game/start', {
@@ -33,6 +59,8 @@ export default function GameManager() {
           playersCount,
           impostorsCount,
           gameMode,
+          cardSource,
+          customCards: cardSource !== 'CLASH' ? customCards : undefined,
         }),
       });
 
@@ -96,6 +124,7 @@ export default function GameManager() {
     setCurrentPlayerIndex(0);
     setTimer(0);
     setGameMode('CLASSIC');
+    setCardSource('CLASH');
   };
 
   const backToModeSelect = () => {
@@ -115,21 +144,36 @@ export default function GameManager() {
   const currentPlayer = gameSession?.players[currentPlayerIndex];
 
   const selectedModeInfo = GAME_MODES.find(m => m.id === gameMode);
+  const selectedCardSourceInfo = CARD_SOURCES.find(s => s.id === cardSource);
+
+  // Verificar se pode usar a fonte de cartas selecionada
+  const canUseCardSource = (source: CardSource) => {
+    if (source === 'CLASH') return true;
+    return customCards.length >= 2;
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4">
       <div className="w-full max-w-md">
+        {/* Modal de Cartas Personalizadas */}
+        {showCustomCardsManager && (
+          <CustomCardsManager
+            onClose={() => setShowCustomCardsManager(false)}
+            onCardsUpdate={handleCustomCardsUpdate}
+          />
+        )}
+
         {/* Fase MODE_SELECT */}
         {phase === 'MODE_SELECT' && (
           <div className="bg-white/10 backdrop-blur-lg rounded-3xl p-8 shadow-2xl animate-fade-in">
             <h1 className="text-4xl font-bold text-center mb-4 text-yellow-400 drop-shadow-lg font-clash">
               CLASH IMPOSTOR
             </h1>
-            <p className="text-white text-center mb-8 text-lg">
+            <p className="text-white text-center mb-6 text-lg">
               Escolha o modo de jogo
             </p>
             
-            <div className="space-y-4">
+            <div className="space-y-4 mb-6">
               {GAME_MODES.map((mode) => (
                 <button
                   key={mode.id}
@@ -150,6 +194,20 @@ export default function GameManager() {
                 </button>
               ))}
             </div>
+
+            {/* Botão de Cartas Personalizadas */}
+            <button
+              onClick={() => setShowCustomCardsManager(true)}
+              className="w-full p-4 bg-purple-600/30 hover:bg-purple-600/50 rounded-xl border-2 border-purple-400/50 hover:border-purple-400 transition-all duration-300 flex items-center justify-center gap-3"
+            >
+              <span className="text-2xl">✨</span>
+              <div className="text-left">
+                <span className="text-purple-300 font-bold font-clash">Cartas Personalizadas</span>
+                <p className="text-white/60 text-xs">
+                  {customCards.length} carta{customCards.length !== 1 ? 's' : ''} salva{customCards.length !== 1 ? 's' : ''}
+                </p>
+              </div>
+            </button>
           </div>
         )}
 
@@ -161,7 +219,7 @@ export default function GameManager() {
             </h1>
             
             {/* Modo selecionado */}
-            <div className="bg-white/10 rounded-xl p-4 mb-6 flex items-center justify-between">
+            <div className="bg-white/10 rounded-xl p-4 mb-4 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <span className="text-2xl">{selectedModeInfo?.icon}</span>
                 <div>
@@ -176,10 +234,58 @@ export default function GameManager() {
                 Alterar
               </button>
             </div>
+
+            {/* Seletor de fonte de cartas */}
+            <div className="mb-6">
+              <label className="block text-white text-sm font-semibold mb-2 font-clash">
+                Fonte das Cartas
+              </label>
+              <div className="grid grid-cols-3 gap-2">
+                {CARD_SOURCES.map((source) => {
+                  const isDisabled = !canUseCardSource(source.id);
+                  const isSelected = cardSource === source.id;
+                  return (
+                    <button
+                      key={source.id}
+                      onClick={() => !isDisabled && setCardSource(source.id)}
+                      disabled={isDisabled}
+                      className={`p-3 rounded-xl border-2 transition-all duration-200 ${
+                        isSelected
+                          ? 'bg-yellow-400/20 border-yellow-400'
+                          : isDisabled
+                          ? 'bg-white/5 border-white/20 opacity-50 cursor-not-allowed'
+                          : 'bg-white/10 border-white/30 hover:border-yellow-400/50'
+                      }`}
+                    >
+                      <span className="text-xl block mb-1">{source.icon}</span>
+                      <span className={`text-xs font-bold font-clash ${isSelected ? 'text-yellow-400' : 'text-white/80'}`}>
+                        {source.name}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+              {cardSource !== 'CLASH' && customCards.length < 2 && (
+                <p className="text-red-400 text-xs mt-2">
+                  ⚠️ Adicione pelo menos 2 cartas personalizadas
+                </p>
+              )}
+              {cardSource !== 'CLASH' && customCards.length >= 2 && (
+                <p className="text-green-400 text-xs mt-2">
+                  ✓ {customCards.length} cartas personalizadas disponíveis
+                </p>
+              )}
+              <button
+                onClick={() => setShowCustomCardsManager(true)}
+                className="text-purple-300 hover:text-purple-200 text-xs underline mt-1"
+              >
+                Gerenciar cartas personalizadas
+              </button>
+            </div>
             
-            <div className="space-y-6">
+            <div className="space-y-4">
               <div>
-                <label className="block text-white text-lg font-semibold mb-2 font-clash">
+                <label className="block text-white text-sm font-semibold mb-2 font-clash">
                   Número de Jogadores
                 </label>
                 <input
@@ -194,7 +300,7 @@ export default function GameManager() {
               </div>
 
               <div>
-                <label className="block text-white text-lg font-semibold mb-2 font-clash">
+                <label className="block text-white text-sm font-semibold mb-2 font-clash">
                   Número de Impostores
                 </label>
                 <input
@@ -210,7 +316,7 @@ export default function GameManager() {
 
               <button
                 onClick={startGame}
-                disabled={isLoading || impostorsCount >= playersCount}
+                disabled={isLoading || impostorsCount >= playersCount || (cardSource !== 'CLASH' && customCards.length < 2)}
                 className="w-full py-4 bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-bold text-xl rounded-xl border-4 border-yellow-600 shadow-lg transform transition-all duration-200 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed font-clash"
               >
                 {isLoading ? 'Iniciando...' : 'INICIAR JOGO'}
@@ -255,21 +361,37 @@ export default function GameManager() {
               // Modo Espião (todos veem carta) OU Jogador normal no modo Clássico
               // No modo Espião, o impostor vê uma carta diferente mas NÃO sabe que é impostor
               <>
-                <div className="mb-6 animate-bounce relative w-48 h-48">
-                  <Image
-                    src={currentPlayer.assignedCard?.iconUrls.medium || gameSession.secretCard.iconUrls.medium}
-                    alt={currentPlayer.assignedCard?.name || gameSession.secretCard.name}
-                    fill
-                    className="object-contain drop-shadow-2xl"
-                    unoptimized
-                  />
-                </div>
-                <h2 className="text-3xl font-bold text-yellow-400 mb-4 text-center font-clash">
-                  {currentPlayer.assignedCard?.name || gameSession.secretCard.name}
-                </h2>
-                <p className="text-white text-lg text-center mb-8">
-                  Memorize esta carta!
-                </p>
+                {(() => {
+                  const card = currentPlayer.assignedCard || gameSession.secretCard;
+                  const isCustomCard = card.isCustom;
+                  return (
+                    <>
+                      {isCustomCard ? (
+                        // Carta personalizada - mostrar emoji
+                        <div className="mb-6 animate-bounce text-9xl">
+                          {card.iconUrls.medium}
+                        </div>
+                      ) : (
+                        // Carta do Clash - mostrar imagem
+                        <div className="mb-6 animate-bounce relative w-48 h-48">
+                          <Image
+                            src={card.iconUrls.medium}
+                            alt={card.name}
+                            fill
+                            className="object-contain drop-shadow-2xl"
+                            unoptimized
+                          />
+                        </div>
+                      )}
+                      <h2 className="text-3xl font-bold text-yellow-400 mb-4 text-center font-clash">
+                        {card.name}
+                      </h2>
+                      <p className="text-white text-lg text-center mb-8">
+                        Memorize esta carta!
+                      </p>
+                    </>
+                  );
+                })()}
               </>
             )}
             
@@ -357,28 +479,36 @@ export default function GameManager() {
                 </h4>
                 <div className="flex justify-center gap-8">
                   <div className="text-center">
-                    <div className="relative w-24 h-24 mx-auto mb-2">
-                      <Image
-                        src={gameSession.secretCard.iconUrls.medium}
-                        alt={gameSession.secretCard.name}
-                        fill
-                        className="object-contain"
-                        unoptimized
-                      />
-                    </div>
+                    {gameSession.secretCard.isCustom ? (
+                      <div className="text-6xl mb-2">{gameSession.secretCard.iconUrls.medium}</div>
+                    ) : (
+                      <div className="relative w-24 h-24 mx-auto mb-2">
+                        <Image
+                          src={gameSession.secretCard.iconUrls.medium}
+                          alt={gameSession.secretCard.name}
+                          fill
+                          className="object-contain"
+                          unoptimized
+                        />
+                      </div>
+                    )}
                     <p className="text-green-400 font-bold text-sm font-clash">Carta Real</p>
                     <p className="text-white text-xs">{gameSession.secretCard.name}</p>
                   </div>
                   <div className="text-center">
-                    <div className="relative w-24 h-24 mx-auto mb-2">
-                      <Image
-                        src={gameSession.impostorCard.iconUrls.medium}
-                        alt={gameSession.impostorCard.name}
-                        fill
-                        className="object-contain"
-                        unoptimized
-                      />
-                    </div>
+                    {gameSession.impostorCard.isCustom ? (
+                      <div className="text-6xl mb-2">{gameSession.impostorCard.iconUrls.medium}</div>
+                    ) : (
+                      <div className="relative w-24 h-24 mx-auto mb-2">
+                        <Image
+                          src={gameSession.impostorCard.iconUrls.medium}
+                          alt={gameSession.impostorCard.name}
+                          fill
+                          className="object-contain"
+                          unoptimized
+                        />
+                      </div>
+                    )}
                     <p className="text-red-400 font-bold text-sm font-clash">Carta do Espião</p>
                     <p className="text-white text-xs">{gameSession.impostorCard.name}</p>
                   </div>
@@ -393,15 +523,19 @@ export default function GameManager() {
                   A carta secreta era:
                 </h4>
                 <div className="text-center">
-                  <div className="relative w-32 h-32 mx-auto mb-2">
-                    <Image
-                      src={gameSession.secretCard.iconUrls.medium}
-                      alt={gameSession.secretCard.name}
-                      fill
-                      className="object-contain"
-                      unoptimized
-                    />
-                  </div>
+                  {gameSession.secretCard.isCustom ? (
+                    <div className="text-7xl mb-2">{gameSession.secretCard.iconUrls.medium}</div>
+                  ) : (
+                    <div className="relative w-32 h-32 mx-auto mb-2">
+                      <Image
+                        src={gameSession.secretCard.iconUrls.medium}
+                        alt={gameSession.secretCard.name}
+                        fill
+                        className="object-contain"
+                        unoptimized
+                      />
+                    </div>
+                  )}
                   <p className="text-yellow-400 font-bold font-clash">{gameSession.secretCard.name}</p>
                 </div>
               </div>
