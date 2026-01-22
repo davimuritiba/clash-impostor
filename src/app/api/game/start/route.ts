@@ -1,9 +1,11 @@
 import { NextResponse } from 'next/server';
-import { setupGame } from '@/services/gameLogic';
+import { createGameSession } from '@/services/gameLogic';
+import type { GameMode } from '@/types/game';
 
 export async function POST(request: Request) {
   try {
-    const { playersCount, impostorsCount } = await request.json();
+    const { playersCount, impostorsCount, mode } = await request.json();
+    const resolvedMode: GameMode = mode === 'RELAMPAGO' ? 'RELAMPAGO' : 'CLASSIC';
 
     // Validação dos dados de entrada
     if (!playersCount || !impostorsCount) {
@@ -116,7 +118,12 @@ export async function POST(request: Request) {
     const allCards = data.items;
 
     // Inicia a lógica do jogo passando as cartas e configs
-    const gameSession = setupGame(allCards, playersCount, impostorsCount);
+    const gameSession = createGameSession(
+      allCards,
+      playersCount,
+      impostorsCount,
+      resolvedMode
+    );
 
     return NextResponse.json(gameSession);
   } catch (error) {
