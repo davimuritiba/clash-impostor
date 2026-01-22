@@ -1,13 +1,76 @@
 import { NextResponse } from 'next/server';
 import { setupGame } from '@/services/gameLogic';
-import { GameMode } from '@/types/game';
+import { GameMode, CardSource, Card } from '@/types/game';
+
+// Função para buscar cartas do Clash Royale
+async function fetchClashRoyaleCards(): Promise<Card[]> {
+  const apiKey = process.env.CLASH_ROYALE_API_KEY;
+  
+  if (!apiKey) {
+    throw new Error('Chave da API do Clash Royale não configurada');
+  }
+
+  const cleanApiKey = apiKey.trim();
+  const authHeader = `Bearer ${cleanApiKey}`;
+
+  const response = await fetch('https://proxy.royaleapi.dev/v1/cards', {
+    method: 'GET',
+    headers: { 
+      'Authorization': authHeader,
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    let errorMessage = `Erro ao buscar cartas: ${response.status} ${response.statusText}`;
+    
+    try {
+      const errorText = await response.text();
+      try {
+        const errorDetails = JSON.parse(errorText);
+        if (errorDetails.reason) {
+          errorMessage = `Erro na API: ${errorDetails.reason}`;
+        } else if (errorDetails.message) {
+          errorMessage = `Erro na API: ${errorDetails.message}`;
+        }
+      } catch {
+        errorMessage = errorText || errorMessage;
+      }
+    } catch {
+      // Erro ao ler resposta
+    }
+    
+    if (response.status === 403) {
+      errorMessage = 'IP não autorizado ou chave da API inválida. Verifique em https://developer.clashroyale.com/';
+    }
+    
+    throw new Error(errorMessage);
+  }
+
+  const data = await response.json();
+  
+  if (!data.items || !Array.isArray(data.items) || data.items.length === 0) {
+    throw new Error('Nenhuma carta encontrada na API');
+  }
+
+  return data.items;
+}
 
 export async function POST(request: Request) {
   try {
-    const { playersCount, impostorsCount, gameMode = "CLASSIC" } = await request.json() as {
+    const { 
+      playersCount, 
+      impostorsCount, 
+      gameMode = "CLASSIC",
+      cardSource = "CLASH",
+      customCards = []
+    } = await request.json() as {
       playersCount: number;
       impostorsCount: number;
       gameMode?: GameMode;
+      cardSource?: CardSource;
+      customCards?: Card[];
     };
 
     // Validação dos dados de entrada
@@ -39,92 +102,58 @@ export async function POST(request: Request) {
       );
     }
 
-    const apiKey = process.env.CLASH_ROYALE_API_KEY;
-    
-    if (!apiKey) {
-      return NextResponse.json(
-        { error: 'Chave da API do Clash Royale não configurada' },
-        { status: 500 }
-      );
-    }
-
-    // Remove espaços e caracteres invisíveis da chave
-    const cleanApiKey = apiKey.trim();
-    const authHeader = `Bearer ${cleanApiKey}`;
-
-    // Usando proxy do RoyaleAPI para evitar problemas com IPs dinâmicos
-    const response = await fetch('https://proxy.royaleapi.dev/v1/cards', {
-      method: 'GET',
-      headers: { 
-        'Authorization': authHeader,
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      },
-    });
-
-    if (!response.ok) {
-      let errorMessage = `Erro ao buscar cartas: ${response.status} ${response.statusText}`;
-      let errorDetails = null;
-      
-      // Tenta obter mensagem de erro mais específica da API
-      try {
-        const errorText = await response.text();
-        
-        try {
-          errorDetails = JSON.parse(errorText);
-          if (errorDetails.reason) {
-            errorMessage = `Erro na API: ${errorDetails.reason}`;
-          } else if (errorDetails.message) {
-            errorMessage = `Erro na API: ${errorDetails.message}`;
-          }
-        } catch {
-          // Se não for JSON, usa o texto como está
-          errorMessage = errorText || errorMessage;
-        }
-      } catch {
-        // Erro ao ler resposta
-      }
-      
-      // Tratamento específico para erro 403
-      if (response.status === 403) {
-        // Verifica se o erro é relacionado a IP não autorizado
-        const errorText = errorDetails ? JSON.stringify(errorDetails) : '';
-        const isIpError = errorText.toLowerCase().includes('ip') || 
-                         errorText.toLowerCase().includes('address') ||
-                         errorMessage.toLowerCase().includes('ip');
-        
-        if (isIpError) {
-          errorMessage = 'IP não autorizado. A chave da API não permite acesso deste endereço IP. Acesse https://developer.clashroyale.com/ e adicione seu IP na lista de IPs permitidos do token.';
-        } else {
-          const detailedMessage = errorDetails 
-            ? `Chave da API inválida ou sem permissões. Detalhes: ${JSON.stringify(errorDetails)}`
-            : 'Chave da API inválida ou sem permissões. Verifique se a chave está correta e ativa em https://developer.clashroyale.com/';
-          errorMessage = detailedMessage;
-        }
-      }
-      
-      return NextResponse.json(
-        { error: errorMessage, details: errorDetails },
-        { status: response.status }
-      );
-    }
-
-    const data = await response.json();
-    
-    if (!data.items || !Array.isArray(data.items) || data.items.length === 0) {
-      return NextResponse.json(
-        { error: 'Nenhuma carta encontrada na API' },
-        { status: 500 }
-      );
-    }
-
-    const allCards = data.items;
-
     // Valida o modo de jogo
     const validModes: GameMode[] = ["CLASSIC", "SPY"];
     if (!validModes.includes(gameMode)) {
       return NextResponse.json(
         { error: 'Modo de jogo inválido. Use "CLASSIC" ou "SPY"' },
+        { status: 400 }
+      );
+    }
+
+    // Valida a fonte de cartas
+    const validSources: CardSource[] = ["CLASH", "CUSTOM", "BOTH"];
+    if (!validSources.includes(cardSource)) {
+      return NextResponse.json(
+        { error: 'Fonte de cartas inválida. Use "CLASH", "CUSTOM" ou "BOTH"' },
+        { status: 400 }
+      );
+    }
+
+    // Monta a lista de cartas baseada na fonte selecionada
+    let allCards: Card[] = [];
+
+    if (cardSource === 'CLASH' || cardSource === 'BOTH') {
+      try {
+        const clashCards = await fetchClashRoyaleCards();
+        allCards = [...allCards, ...clashCards];
+      } catch (error) {
+        // Se estiver usando apenas Clash, propaga o erro
+        if (cardSource === 'CLASH') {
+          return NextResponse.json(
+            { error: error instanceof Error ? error.message : 'Erro ao buscar cartas do Clash Royale' },
+            { status: 500 }
+          );
+        }
+        // Se estiver usando BOTH, continua apenas com as personalizadas
+        console.error('Erro ao buscar cartas do Clash (usando apenas personalizadas):', error);
+      }
+    }
+
+    if (cardSource === 'CUSTOM' || cardSource === 'BOTH') {
+      if (!customCards || customCards.length < 2) {
+        return NextResponse.json(
+          { error: 'Você precisa de pelo menos 2 cartas personalizadas' },
+          { status: 400 }
+        );
+      }
+      allCards = [...allCards, ...customCards];
+    }
+
+    // Verifica se tem cartas suficientes
+    if (allCards.length < 2) {
+      return NextResponse.json(
+        { error: 'Não há cartas suficientes para iniciar o jogo' },
         { status: 400 }
       );
     }
