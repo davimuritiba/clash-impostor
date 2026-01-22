@@ -5,19 +5,19 @@ import Image from 'next/image';
 import { Card, GameMode, GAME_MODES, GameSession, CardSource, CARD_SOURCES, CUSTOM_CARDS_STORAGE_KEY, hasCustomImage } from '@/types/game';
 import CustomCardsManager from './CustomCardsManager';
 
-// Componente para renderizar uma carta (suporta imagem personalizada, emoji ou imagem do Clash)
+// Componente para renderizar uma carta (suporta imagem personalizada ou imagem do Clash)
 function CardDisplay({ card, size = 'large' }: { card: Card; size?: 'small' | 'medium' | 'large' }) {
   const [imgError, setImgError] = useState(false);
   
   const sizeClasses = {
-    small: { container: 'w-16 h-16', emoji: 'text-5xl', image: 'w-16 h-16' },
-    medium: { container: 'w-24 h-24', emoji: 'text-6xl', image: 'w-24 h-24' },
-    large: { container: 'w-48 h-48', emoji: 'text-9xl', image: 'w-48 h-48' },
+    small: { emoji: 'text-5xl', image: 'w-16 h-16' },
+    medium: { emoji: 'text-6xl', image: 'w-24 h-24' },
+    large: { emoji: 'text-9xl', image: 'w-48 h-48' },
   };
 
   const classes = sizeClasses[size];
 
-  // Carta personalizada com imagem URL
+  // Carta personalizada com imagem (base64 ou URL)
   if (hasCustomImage(card) && !imgError) {
     return (
       <div className={`relative ${classes.image} mx-auto`}>
@@ -33,11 +33,11 @@ function CardDisplay({ card, size = 'large' }: { card: Card; size?: 'small' | 'm
     );
   }
 
-  // Carta personalizada com emoji (ou fallback se imagem falhar)
+  // Carta personalizada sem imagem (fallback com ícone padrão)
   if (card.isCustom) {
     return (
-      <div className={classes.emoji}>
-        {card.iconUrls.medium}
+      <div className={`${classes.emoji} flex items-center justify-center`}>
+        🎴
       </div>
     );
   }
@@ -291,7 +291,7 @@ export default function GameManager() {
               <label className="block text-white text-sm font-semibold mb-2 font-clash">
                 Fonte das Cartas
               </label>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-3 gap-1">
                 {CARD_SOURCES.map((source) => {
                   const isDisabled = !canUseCardSource(source.id);
                   const isSelected = cardSource === source.id;
@@ -300,7 +300,7 @@ export default function GameManager() {
                       key={source.id}
                       onClick={() => !isDisabled && setCardSource(source.id)}
                       disabled={isDisabled}
-                      className={`p-3 rounded-xl border-2 transition-all duration-200 ${
+                      className={`p-2 rounded-xl border-2 transition-all duration-200 ${
                         isSelected
                           ? 'bg-yellow-400/20 border-yellow-400'
                           : isDisabled
@@ -308,8 +308,8 @@ export default function GameManager() {
                           : 'bg-white/10 border-white/30 hover:border-yellow-400/50'
                       }`}
                     >
-                      <span className="text-xl block mb-1">{source.icon}</span>
-                      <span className={`text-xs font-bold font-clash ${isSelected ? 'text-yellow-400' : 'text-white/80'}`}>
+                      <span className="text-lg block mb-0.5">{source.icon}</span>
+                      <span className={`text-[9px] leading-tight font-bold font-clash block truncate ${isSelected ? 'text-yellow-400' : 'text-white/80'}`}>
                         {source.name}
                       </span>
                     </button>
