@@ -3,7 +3,7 @@ import { setupGame } from '@/services/gameLogic';
 
 export async function POST(request: Request) {
   try {
-    const { playersCount, impostorsCount } = await request.json();
+    const { playersCount, impostorsCount, mode } = await request.json();
 
     // Validação dos dados de entrada
     if (!playersCount || !impostorsCount) {
@@ -114,9 +114,12 @@ export async function POST(request: Request) {
     }
 
     const allCards = data.items;
+    
+    // Determinar modo de jogo
+    const gameMode = (mode === 'DOUBLE_TROUBLE') ? 'DOUBLE_TROUBLE' : 'CLASSIC';
 
     // Inicia a lógica do jogo passando as cartas e configs
-    const gameSession = setupGame(allCards, playersCount, impostorsCount);
+    const gameSession = setupGame(allCards, playersCount, impostorsCount, gameMode);
 
     return NextResponse.json(gameSession);
   } catch (error) {

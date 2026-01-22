@@ -2,14 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
-import { Card, Player } from '@/types/game';
+import { Card, Player, GameSession, GameMode } from '@/types/game';
 
 type GamePhase = 'START' | 'PASS' | 'REVEAL' | 'PLAYING';
-
-interface GameSession {
-  secretCard: Card;
-  players: Player[];
-}
 
 export default function GameManager() {
   const [phase, setPhase] = useState<GamePhase>('START');
@@ -17,6 +12,7 @@ export default function GameManager() {
   const [currentPlayerIndex, setCurrentPlayerIndex] = useState(0);
   const [playersCount, setPlayersCount] = useState(4);
   const [impostorsCount, setImpostorsCount] = useState(1);
+  const [mode, setMode] = useState<GameMode>('CLASSIC');
   const [isLoading, setIsLoading] = useState(false);
   const [timer, setTimer] = useState(0);
 
@@ -31,6 +27,7 @@ export default function GameManager() {
         body: JSON.stringify({
           playersCount,
           impostorsCount,
+          mode,
         }),
       });
 
@@ -102,6 +99,7 @@ export default function GameManager() {
   };
 
   const currentPlayer = gameSession?.players[currentPlayerIndex];
+  const currentSecretCard = currentPlayer?.assignedCard || gameSession?.secretCard;
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4">
@@ -142,6 +140,39 @@ export default function GameManager() {
                   className="w-full px-4 py-3 rounded-xl bg-white/20 text-white text-center text-2xl font-bold border-2 border-yellow-400 focus:outline-none focus:ring-4 focus:ring-yellow-400/50 touch-manipulation"
                   inputMode="numeric"
                 />
+              </div>
+
+              <div>
+                <label className="block text-white text-lg font-semibold mb-2 font-clash">
+                  Modo de Jogo
+                </label>
+                <div className="grid grid-cols-2 gap-4">
+                  <button
+                    onClick={() => setMode('CLASSIC')}
+                    className={`p-3 rounded-xl border-2 font-bold transition-all ${
+                      mode === 'CLASSIC'
+                        ? 'bg-yellow-400 border-yellow-600 text-gray-900 scale-105 shadow-lg'
+                        : 'bg-white/10 border-white/30 text-white hover:bg-white/20'
+                    }`}
+                  >
+                    Clássico
+                  </button>
+                  <button
+                    onClick={() => setMode('DOUBLE_TROUBLE')}
+                    className={`p-3 rounded-xl border-2 font-bold transition-all ${
+                      mode === 'DOUBLE_TROUBLE'
+                        ? 'bg-yellow-400 border-yellow-600 text-gray-900 scale-105 shadow-lg'
+                        : 'bg-white/10 border-white/30 text-white hover:bg-white/20'
+                    }`}
+                  >
+                    Confusão Dupla
+                  </button>
+                </div>
+                <p className="text-white/60 text-sm mt-2 text-center">
+                  {mode === 'CLASSIC' 
+                    ? 'Uma única carta secreta para todos.' 
+                    : 'Duas cartas secretas diferentes distribuídas entre os jogadores.'}
+                </p>
               </div>
 
               <button
@@ -187,23 +218,25 @@ export default function GameManager() {
                 </p>
               </>
             ) : (
+              currentSecretCard && (
               <>
                 <div className="mb-6 animate-bounce relative w-48 h-48">
                   <Image
-                    src={gameSession.secretCard.iconUrls.medium}
-                    alt={gameSession.secretCard.name}
+                    src={currentSecretCard.iconUrls.medium}
+                    alt={currentSecretCard.name}
                     fill
                     className="object-contain drop-shadow-2xl"
                     unoptimized
                   />
                 </div>
                 <h2 className="text-3xl font-bold text-yellow-400 mb-4 text-center font-clash">
-                  {gameSession.secretCard.name}
+                  {currentSecretCard.name}
                 </h2>
                 <p className="text-white text-lg text-center mb-8">
                   Memorize esta carta!
                 </p>
               </>
+              )
             )}
             
             <button
