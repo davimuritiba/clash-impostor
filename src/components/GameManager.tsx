@@ -2,8 +2,59 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
-import { Card, GameMode, GAME_MODES, GameSession, CardSource, CARD_SOURCES, CUSTOM_CARDS_STORAGE_KEY } from '@/types/game';
+import { Card, GameMode, GAME_MODES, GameSession, CardSource, CARD_SOURCES, CUSTOM_CARDS_STORAGE_KEY, hasCustomImage } from '@/types/game';
 import CustomCardsManager from './CustomCardsManager';
+
+// Componente para renderizar uma carta (suporta imagem personalizada, emoji ou imagem do Clash)
+function CardDisplay({ card, size = 'large' }: { card: Card; size?: 'small' | 'medium' | 'large' }) {
+  const [imgError, setImgError] = useState(false);
+  
+  const sizeClasses = {
+    small: { container: 'w-16 h-16', emoji: 'text-5xl', image: 'w-16 h-16' },
+    medium: { container: 'w-24 h-24', emoji: 'text-6xl', image: 'w-24 h-24' },
+    large: { container: 'w-48 h-48', emoji: 'text-9xl', image: 'w-48 h-48' },
+  };
+
+  const classes = sizeClasses[size];
+
+  // Carta personalizada com imagem URL
+  if (hasCustomImage(card) && !imgError) {
+    return (
+      <div className={`relative ${classes.image} mx-auto`}>
+        <Image
+          src={card.customImageUrl!}
+          alt={card.name}
+          fill
+          className="object-contain drop-shadow-2xl rounded-lg"
+          onError={() => setImgError(true)}
+          unoptimized
+        />
+      </div>
+    );
+  }
+
+  // Carta personalizada com emoji (ou fallback se imagem falhar)
+  if (card.isCustom) {
+    return (
+      <div className={classes.emoji}>
+        {card.iconUrls.medium}
+      </div>
+    );
+  }
+
+  // Carta do Clash Royale
+  return (
+    <div className={`relative ${classes.image} mx-auto`}>
+      <Image
+        src={card.iconUrls.medium}
+        alt={card.name}
+        fill
+        className="object-contain drop-shadow-2xl"
+        unoptimized
+      />
+    </div>
+  );
+}
 
 type GamePhase = 'MODE_SELECT' | 'START' | 'PASS' | 'REVEAL' | 'PLAYING' | 'GAME_END';
 
@@ -363,26 +414,11 @@ export default function GameManager() {
               <>
                 {(() => {
                   const card = currentPlayer.assignedCard || gameSession.secretCard;
-                  const isCustomCard = card.isCustom;
                   return (
                     <>
-                      {isCustomCard ? (
-                        // Carta personalizada - mostrar emoji
-                        <div className="mb-6 animate-bounce text-9xl">
-                          {card.iconUrls.medium}
-                        </div>
-                      ) : (
-                        // Carta do Clash - mostrar imagem
-                        <div className="mb-6 animate-bounce relative w-48 h-48">
-                          <Image
-                            src={card.iconUrls.medium}
-                            alt={card.name}
-                            fill
-                            className="object-contain drop-shadow-2xl"
-                            unoptimized
-                          />
-                        </div>
-                      )}
+                      <div className="mb-6 animate-bounce">
+                        <CardDisplay card={card} size="large" />
+                      </div>
                       <h2 className="text-3xl font-bold text-yellow-400 mb-4 text-center font-clash">
                         {card.name}
                       </h2>
@@ -479,36 +515,16 @@ export default function GameManager() {
                 </h4>
                 <div className="flex justify-center gap-8">
                   <div className="text-center">
-                    {gameSession.secretCard.isCustom ? (
-                      <div className="text-6xl mb-2">{gameSession.secretCard.iconUrls.medium}</div>
-                    ) : (
-                      <div className="relative w-24 h-24 mx-auto mb-2">
-                        <Image
-                          src={gameSession.secretCard.iconUrls.medium}
-                          alt={gameSession.secretCard.name}
-                          fill
-                          className="object-contain"
-                          unoptimized
-                        />
-                      </div>
-                    )}
+                    <div className="mb-2">
+                      <CardDisplay card={gameSession.secretCard} size="medium" />
+                    </div>
                     <p className="text-green-400 font-bold text-sm font-clash">Carta Real</p>
                     <p className="text-white text-xs">{gameSession.secretCard.name}</p>
                   </div>
                   <div className="text-center">
-                    {gameSession.impostorCard.isCustom ? (
-                      <div className="text-6xl mb-2">{gameSession.impostorCard.iconUrls.medium}</div>
-                    ) : (
-                      <div className="relative w-24 h-24 mx-auto mb-2">
-                        <Image
-                          src={gameSession.impostorCard.iconUrls.medium}
-                          alt={gameSession.impostorCard.name}
-                          fill
-                          className="object-contain"
-                          unoptimized
-                        />
-                      </div>
-                    )}
+                    <div className="mb-2">
+                      <CardDisplay card={gameSession.impostorCard} size="medium" />
+                    </div>
                     <p className="text-red-400 font-bold text-sm font-clash">Carta do Espião</p>
                     <p className="text-white text-xs">{gameSession.impostorCard.name}</p>
                   </div>
@@ -523,19 +539,9 @@ export default function GameManager() {
                   A carta secreta era:
                 </h4>
                 <div className="text-center">
-                  {gameSession.secretCard.isCustom ? (
-                    <div className="text-7xl mb-2">{gameSession.secretCard.iconUrls.medium}</div>
-                  ) : (
-                    <div className="relative w-32 h-32 mx-auto mb-2">
-                      <Image
-                        src={gameSession.secretCard.iconUrls.medium}
-                        alt={gameSession.secretCard.name}
-                        fill
-                        className="object-contain"
-                        unoptimized
-                      />
-                    </div>
-                  )}
+                  <div className="mb-2">
+                    <CardDisplay card={gameSession.secretCard} size="medium" />
+                  </div>
                   <p className="text-yellow-400 font-bold font-clash">{gameSession.secretCard.name}</p>
                 </div>
               </div>

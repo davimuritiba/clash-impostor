@@ -5,7 +5,13 @@ export interface Card {
     medium: string;
   };
   isCustom?: boolean; // Indica se é uma carta personalizada
+  customImageUrl?: string; // URL de imagem personalizada (opcional)
 }
+
+// Verifica se uma carta tem imagem personalizada (URL válida)
+export const hasCustomImage = (card: Card): boolean => {
+  return !!(card.customImageUrl && card.customImageUrl.startsWith('http'));
+};
 
 // Tipo para origem das cartas
 export type CardSource = "CLASH" | "CUSTOM" | "BOTH";
