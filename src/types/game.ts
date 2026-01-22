@@ -27,7 +27,7 @@ export const GAME_MODES: GameModeInfo[] = [
   {
     id: "SPY",
     name: "Espião",
-    description: "O impostor vê uma carta diferente - mais difícil de detectar!",
+    description: "O impostor vê uma carta diferente e não sabe que é impostor!",
     icon: "🕵️",
   },
 ];

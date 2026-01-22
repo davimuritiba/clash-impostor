@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { Card, Player, GameMode, GAME_MODES, GameSession } from '@/types/game';
 
-type GamePhase = 'MODE_SELECT' | 'START' | 'PASS' | 'REVEAL' | 'PLAYING';
+type GamePhase = 'MODE_SELECT' | 'START' | 'PASS' | 'REVEAL' | 'PLAYING' | 'GAME_END';
 
 export default function GameManager() {
   const [phase, setPhase] = useState<GamePhase>('MODE_SELECT');
@@ -100,6 +100,10 @@ export default function GameManager() {
 
   const backToModeSelect = () => {
     setPhase('MODE_SELECT');
+  };
+
+  const endGame = () => {
+    setPhase('GAME_END');
   };
 
   const formatTime = (seconds: number) => {
@@ -237,7 +241,7 @@ export default function GameManager() {
         {phase === 'REVEAL' && currentPlayer && gameSession && (
           <div className="bg-gradient-to-br from-purple-900 to-indigo-900 rounded-3xl p-8 shadow-2xl min-h-[500px] flex flex-col items-center justify-center animate-flip-in">
             {currentPlayer.role === 'IMPOSTOR' && gameSession.gameMode === 'CLASSIC' ? (
-              // Modo Clássico - Impostor não vê carta
+              // Modo Clássico - Impostor não vê carta e sabe que é impostor
               <>
                 <div className="text-6xl mb-6">👹</div>
                 <h2 className="text-5xl font-bold text-red-500 mb-4 text-center animate-pulse drop-shadow-2xl font-clash">
@@ -247,47 +251,21 @@ export default function GameManager() {
                   Descubra qual é a carta secreta!
                 </p>
               </>
-            ) : currentPlayer.role === 'IMPOSTOR' && gameSession.gameMode === 'SPY' ? (
-              // Modo Espião - Impostor vê carta diferente
-              <>
-                <div className="text-4xl mb-2">🕵️</div>
-                <h2 className="text-3xl font-bold text-red-500 mb-4 text-center drop-shadow-2xl font-clash">
-                  VOCÊ É O ESPIÃO
-                </h2>
-                {currentPlayer.assignedCard && (
-                  <>
-                    <div className="mb-4 relative w-40 h-40">
-                      <Image
-                        src={currentPlayer.assignedCard.iconUrls.medium}
-                        alt={currentPlayer.assignedCard.name}
-                        fill
-                        className="object-contain drop-shadow-2xl"
-                        unoptimized
-                      />
-                    </div>
-                    <h3 className="text-2xl font-bold text-yellow-400 mb-2 text-center font-clash">
-                      {currentPlayer.assignedCard.name}
-                    </h3>
-                  </>
-                )}
-                <p className="text-white text-sm text-center mb-6 px-4">
-                  Esta NÃO é a carta que os outros veem. Descubra qual é a verdadeira!
-                </p>
-              </>
             ) : (
-              // Jogador normal - vê a carta secreta
+              // Modo Espião (todos veem carta) OU Jogador normal no modo Clássico
+              // No modo Espião, o impostor vê uma carta diferente mas NÃO sabe que é impostor
               <>
                 <div className="mb-6 animate-bounce relative w-48 h-48">
                   <Image
-                    src={gameSession.secretCard.iconUrls.medium}
-                    alt={gameSession.secretCard.name}
+                    src={currentPlayer.assignedCard?.iconUrls.medium || gameSession.secretCard.iconUrls.medium}
+                    alt={currentPlayer.assignedCard?.name || gameSession.secretCard.name}
                     fill
                     className="object-contain drop-shadow-2xl"
                     unoptimized
                   />
                 </div>
                 <h2 className="text-3xl font-bold text-yellow-400 mb-4 text-center font-clash">
-                  {gameSession.secretCard.name}
+                  {currentPlayer.assignedCard?.name || gameSession.secretCard.name}
                 </h2>
                 <p className="text-white text-lg text-center mb-8">
                   Memorize esta carta!
@@ -322,11 +300,118 @@ export default function GameManager() {
               </div>
             </div>
 
+            <div className="flex flex-col gap-4 w-full">
+              <button
+                onClick={endGame}
+                className="w-full px-8 py-4 bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-bold text-xl rounded-xl border-4 border-yellow-600 shadow-lg transform transition-all duration-200 hover:scale-105 active:scale-95 font-clash"
+              >
+                Revelar Impostores
+              </button>
+              
+              <button
+                onClick={resetGame}
+                className="w-full px-8 py-4 bg-red-500/80 hover:bg-red-600 text-white font-bold text-lg rounded-xl border-4 border-red-700 shadow-lg transform transition-all duration-200 hover:scale-105 active:scale-95 font-clash"
+              >
+                Cancelar Partida
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Fase GAME_END - Revelação dos Impostores */}
+        {phase === 'GAME_END' && gameSession && (
+          <div className="bg-gradient-to-br from-red-900 to-orange-900 rounded-3xl p-8 shadow-2xl min-h-[500px] flex flex-col items-center justify-center animate-fade-in">
+            <h2 className="text-4xl font-bold text-white mb-6 text-center font-clash">
+              FIM DE JOGO!
+            </h2>
+            
+            <div className="text-6xl mb-4">👹</div>
+            
+            <h3 className="text-2xl font-bold text-yellow-400 mb-6 text-center font-clash">
+              {gameSession.players.filter(p => p.role === 'IMPOSTOR').length > 1 
+                ? 'OS IMPOSTORES ERAM:' 
+                : 'O IMPOSTOR ERA:'}
+            </h3>
+            
+            <div className="flex flex-wrap justify-center gap-4 mb-8">
+              {gameSession.players
+                .filter(p => p.role === 'IMPOSTOR')
+                .map(impostor => (
+                  <div 
+                    key={impostor.id}
+                    className="bg-red-500/30 border-4 border-red-500 rounded-2xl px-8 py-4 animate-pulse"
+                  >
+                    <span className="text-4xl font-bold text-white font-clash">
+                      Jogador {impostor.id}
+                    </span>
+                  </div>
+                ))
+              }
+            </div>
+
+            {/* Mostrar as cartas no modo Espião */}
+            {gameSession.gameMode === 'SPY' && gameSession.impostorCard && (
+              <div className="w-full bg-black/20 rounded-2xl p-6 mb-8">
+                <h4 className="text-lg font-bold text-white/80 mb-4 text-center font-clash">
+                  Cartas da rodada:
+                </h4>
+                <div className="flex justify-center gap-8">
+                  <div className="text-center">
+                    <div className="relative w-24 h-24 mx-auto mb-2">
+                      <Image
+                        src={gameSession.secretCard.iconUrls.medium}
+                        alt={gameSession.secretCard.name}
+                        fill
+                        className="object-contain"
+                        unoptimized
+                      />
+                    </div>
+                    <p className="text-green-400 font-bold text-sm font-clash">Carta Real</p>
+                    <p className="text-white text-xs">{gameSession.secretCard.name}</p>
+                  </div>
+                  <div className="text-center">
+                    <div className="relative w-24 h-24 mx-auto mb-2">
+                      <Image
+                        src={gameSession.impostorCard.iconUrls.medium}
+                        alt={gameSession.impostorCard.name}
+                        fill
+                        className="object-contain"
+                        unoptimized
+                      />
+                    </div>
+                    <p className="text-red-400 font-bold text-sm font-clash">Carta do Espião</p>
+                    <p className="text-white text-xs">{gameSession.impostorCard.name}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Mostrar a carta secreta no modo Clássico */}
+            {gameSession.gameMode === 'CLASSIC' && (
+              <div className="w-full bg-black/20 rounded-2xl p-6 mb-8">
+                <h4 className="text-lg font-bold text-white/80 mb-4 text-center font-clash">
+                  A carta secreta era:
+                </h4>
+                <div className="text-center">
+                  <div className="relative w-32 h-32 mx-auto mb-2">
+                    <Image
+                      src={gameSession.secretCard.iconUrls.medium}
+                      alt={gameSession.secretCard.name}
+                      fill
+                      className="object-contain"
+                      unoptimized
+                    />
+                  </div>
+                  <p className="text-yellow-400 font-bold font-clash">{gameSession.secretCard.name}</p>
+                </div>
+              </div>
+            )}
+
             <button
               onClick={resetGame}
-              className="px-8 py-4 bg-red-500 hover:bg-red-600 text-white font-bold text-xl rounded-xl border-4 border-red-700 shadow-lg transform transition-all duration-200 hover:scale-105 active:scale-95 font-clash"
+              className="w-full px-8 py-4 bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-bold text-xl rounded-xl border-4 border-yellow-600 shadow-lg transform transition-all duration-200 hover:scale-105 active:scale-95 font-clash"
             >
-              Reiniciar Partida
+              Jogar Novamente
             </button>
           </div>
         )}
